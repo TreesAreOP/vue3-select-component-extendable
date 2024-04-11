@@ -92,6 +92,7 @@ const props = withDefaults(
     autoscroll: true,
     placeholder: "Select an option",
     isClearable: true,
+    isExtendable: false,
     isDisabled: false,
     isSearchable: true,
     isMulti: false,
