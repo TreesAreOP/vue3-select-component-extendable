@@ -58,6 +58,22 @@ Customize the rendered HTML when there are no options matching the search, insid
 </template>
 ```
 
+## new-option
+
+**Type**: `slotProps: { option: string }`
+
+Customize the rendered HTML when there are no options matching the search but the option can be added, inside the menu.
+
+```vue
+<template>
+  <VueSelect v-model="option" :options="options">
+    <template #new-option="{ newOption }">
+       Press Enter to add '{{ newOption }}'
+    </template>
+  </VueSelect>
+</template>
+```
+
 ## dropdown
 
 **Type**: `slotProps: {}`

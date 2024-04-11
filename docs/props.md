@@ -62,6 +62,14 @@ The placeholder text to show when no option is selected.
 
 Whether the select should have a clear button to reset the selected value.
 
+## isExtendable
+
+**Type**: `boolean`
+
+**Default**: `false`
+
+When set to true, new options can be added by pressing enter
+
 ## isDisabled
 
 **Type**: `boolean`
