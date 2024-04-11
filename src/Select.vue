@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Ref } from "vue";
 
 import type { Option } from "./types";
 import ChevronDownIcon from "./icons/ChevronDownIcon.vue";
@@ -8,7 +8,7 @@ import MenuOption from "./MenuOption.vue";
 
 const props = withDefaults(
   defineProps<{
-    options: Option[];
+    options: Ref<Option[]>;
     /**
      * When set to true, automatically scroll the menu to keep the focused option in view.
      */
@@ -21,6 +21,10 @@ const props = withDefaults(
      * When set to true, the input can be cleared by clicking the clear button.
      */
     isClearable?: boolean;
+    /**
+     * When set to true, new options can be added by pressing enter
+     */
+    isExtendable?: boolean;
     /**
      * When set to true, disable the select component.
      */
@@ -123,6 +127,7 @@ const menu = ref<HTMLDivElement | null>(null);
 const search = ref("");
 const menuOpen = ref(false);
 const focusedOption = ref(-1);
+const options = props.options;
 
 const filteredOptions = computed(() => {
   // Remove already selected values from the list of options, when in multi-select mode.
@@ -130,8 +135,8 @@ const filteredOptions = computed(() => {
     (option) => !(selected.value as string[]).includes(option.value),
   );
 
-  if (props.isSearchable && search.value) {
-    const matchingOptions = props.options.filter((option) => {
+  if (props.isSearchable && search.value && options) {
+    const matchingOptions = options.filter((option) => {
       const optionLabel = props.isMulti ? props.getMultiValueLabel(option) : props.getOptionLabel(option);
 
       return props.filterBy(option, optionLabel, search.value);
@@ -140,15 +145,18 @@ const filteredOptions = computed(() => {
     return props.isMulti ? filterSelectedValues(matchingOptions) : matchingOptions;
   }
 
-  return props.isMulti ? filterSelectedValues(props.options) : props.options;
+  return props.isMulti ? filterSelectedValues(options) : options;
 });
 
 const selectedOptions = computed(() => {
+  if (!options) {
+    return [];
+  }
   if (props.isMulti) {
-    return (selected.value as string[]).map((value) => props.options.find((option) => option.value === value)!);
+    return (selected.value as string[]).map((value) => options.find((option) => option.value === value)!);
   }
 
-  const found = props.options.find((option) => option.value === selected.value);
+  const found = options.find((option) => option.value === selected.value);
 
   return found ? [found] : [];
 });
@@ -212,7 +220,7 @@ const handleNavigation = (e: KeyboardEvent) => {
   if (menuOpen.value) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      focusedOption.value = Math.min(focusedOption.value + 1, filteredOptions.value.length - 1);
+      focusedOption.value = Math.min(focusedOption.value + 1, focusedOption.length - 1);
     }
 
     if (e.key === "ArrowUp") {
@@ -222,13 +230,22 @@ const handleNavigation = (e: KeyboardEvent) => {
 
     if (e.key === "Enter") {
       e.preventDefault();
-      setOption(filteredOptions.value[focusedOption.value].value);
+      if (focusedOption?.length > 0) {
+        const selectionOption = focusedOption[focusedOption.value];
+        setOption(selectionOption.value);
+      } else {
+        if (props.isExtendable && search.value.length > 0) {
+          debugger
+          options.push({ label: search.value, value: search.value })
+          setOption(search.value);
+        }
+      }
     }
 
     // When pressing space with menu open but no search, select the focused option.
     if (e.code === "Space" && search.value.length === 0) {
       e.preventDefault();
-      setOption(filteredOptions.value[focusedOption.value].value);
+      setOption(focusedOption[focusedOption.value].value);
     }
 
     if (e.key === "Escape") {
@@ -246,6 +263,16 @@ const handleNavigation = (e: KeyboardEvent) => {
       }
       else {
         selected.value = "";
+      }
+    }
+  } else {
+    if (e.key === "Enter" && props.isExtendable) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      if (search.value.length > 0) {
+        options.push({ label: search.value, value: search.value })
+        setOption(search.value);
       }
     }
   }
@@ -309,88 +336,43 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    ref="container"
-    dir="auto"
-    class="vue-select"
-    :class="{ open: menuOpen, typing: menuOpen && search.length > 0, disabled: isDisabled }"
-  >
+  <div ref="container" dir="auto" class="vue-select"
+    :class="{ open: menuOpen, typing: menuOpen && search.length > 0, disabled: isDisabled }">
     <div class="control" :class="{ focused: menuOpen }">
-      <div
-        class="value-container"
-        :class="{ multi: isMulti }"
-        role="combobox"
-        :aria-expanded="menuOpen"
-        :aria-describedby="placeholder"
-        :aria-description="placeholder"
-        :aria-labelledby="aria?.labelledby"
+      <div class="value-container" :class="{ multi: isMulti }" role="combobox" :aria-expanded="menuOpen"
+        :aria-describedby="placeholder" :aria-description="placeholder" :aria-labelledby="aria?.labelledby"
         :aria-label="selectedOptions.length ? selectedOptions.map(getOptionLabel).join(', ') : ''"
-        :aria-required="aria?.required"
-      >
-        <div
-          v-if="!props.isMulti && selectedOptions[0]"
-          class="single-value"
-          @click="openMenu({ focusInput: true })"
-        >
+        :aria-required="aria?.required">
+        <div v-if="!props.isMulti && selectedOptions[0]" class="single-value" @click="openMenu({ focusInput: true })">
           <slot name="value" :option="selectedOptions[0]">
             {{ getOptionLabel(selectedOptions[0]) }}
           </slot>
         </div>
 
         <template v-if="props.isMulti && selectedOptions.length">
-          <button
-            v-for="option in selectedOptions"
-            :key="option.value"
-            type="button"
-            class="multi-value"
-            @click="removeOption(option.value)"
-          >
+          <button v-for="option in selectedOptions" :key="option.value" type="button" class="multi-value"
+            @click="removeOption(option.value)">
             {{ getMultiValueLabel(option) }}
             <XMarkIcon />
           </button>
         </template>
 
-        <input
-          :id="inputId"
-          ref="input"
-          v-model="search"
-          class="search-input"
-          type="text"
-          aria-autocomplete="list"
-          autocapitalize="none"
-          autocomplete="off"
-          autocorrect="off"
-          spellcheck="false"
-          tabindex="0"
-          :disabled="isDisabled"
-          :placeholder="selectedOptions.length === 0 ? placeholder : ''"
-          @mousedown="openMenu()"
-          @keydown.tab="closeMenu"
-          @keydown.space="handleInputSpace"
-        >
+        <input :id="inputId" ref="input" v-model="search" class="search-input" type="text" aria-autocomplete="list"
+          autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" tabindex="0"
+          :disabled="isDisabled" :placeholder="selectedOptions.length === 0 ? placeholder : ''" @mousedown="openMenu()"
+          @keydown.tab="closeMenu" @keydown.space="handleInputSpace" @keydown.enter="handleInputEnter">
       </div>
 
       <div class="indicators-container">
-        <button
-          v-if="selectedOptions.length > 0 && isClearable"
-          type="button"
-          class="clear-button"
-          tabindex="-1"
-          :disabled="isDisabled"
-          @click="clear"
-        >
+        <button v-if="selectedOptions.length > 0 && isClearable" type="button" class="clear-button" tabindex="-1"
+          :disabled="isDisabled" @click="clear">
           <slot name="clear">
             <XMarkIcon />
           </slot>
         </button>
 
-        <button
-          type="button"
-          class="dropdown-icon"
-          tabindex="-1"
-          :disabled="isDisabled"
-          @click="openMenu({ focusInput: true })"
-        >
+        <button type="button" class="dropdown-icon" tabindex="-1" :disabled="isDisabled"
+          @click="openMenu({ focusInput: true })">
           <slot name="dropdown">
             <ChevronDownIcon />
           </slot>
@@ -399,39 +381,26 @@ onBeforeUnmount(() => {
     </div>
 
     <Teleport :to="teleport" :disabled="!teleport">
-      <div
-        v-if="menuOpen"
-        ref="menu"
-        class="menu"
-        role="listbox"
-        :aria-label="aria?.labelledby"
-        :aria-multiselectable="isMulti"
-        :style="{
+      <div v-if="menuOpen" ref="menu" class="menu" role="listbox" :aria-label="aria?.labelledby"
+        :aria-multiselectable="isMulti" :style="{
           width: props.teleport ? `${container?.getBoundingClientRect().width}px` : '100%',
           top: props.teleport ? calculateMenuPosition().top : 'unset',
           left: props.teleport ? calculateMenuPosition().left : 'unset',
-        }"
-      >
-        <MenuOption
-          v-for="(option, i) in filteredOptions"
-          :key="option.value"
-          type="button"
-          class="menu-option"
-          :class="{ focused: focusedOption === i, selected: option.value === selected }"
-          :menu="menu"
-          :index="i"
-          :is-focused="focusedOption === i"
-          :is-selected="option.value === selected"
-          @select="setOption(option.value)"
-        >
+        }">
+        <MenuOption v-for="(option, i) in filteredOptions" :key="option.value" type="button" class="menu-option"
+          :class="{ focused: focusedOption === i, selected: option.value === selected }" :menu="menu" :index="i"
+          :is-focused="focusedOption === i" :is-selected="option.value === selected" @select="setOption(option.value)">
           <slot name="option" :option="option">
             {{ getOptionLabel(option) }}
           </slot>
         </MenuOption>
 
-        <div v-if="filteredOptions.length === 0" class="no-results">
-          <slot name="no-options">
+        <div v-if="filteredOptions?.length === 0" class="no-results">
+          <slot v-if="!props.isExtendable" name="no-options">
             No results found
+          </slot>
+          <slot v-if="props.isExtendable" name="new-options">
+            Press Enter to add '{{ search }}'
           </slot>
         </div>
       </div>

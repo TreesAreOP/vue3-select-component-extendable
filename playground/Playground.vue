@@ -5,16 +5,7 @@ import VueSelect from "../src/Select.vue";
 
 const option = ref<string>("");
 // eslint-disable-next-line unused-imports/no-unused-vars
-const options = ref<string[]>([]);
-</script>
-
-<template>
-  <div class="container">
-    <form class="form-container" @submit.prevent="null">
-      <VueSelect
-        v-model="option"
-        :is-multi="false"
-        :options="[
+const options = ref([
           { label: 'Alice\'s Adventures in Wonderland', value: 'alice_in_wonderland', extra: 'hello' },
           { label: 'A Wizard of Earthsea', value: 'wizard_earthsea', extra: 'world' },
           { label: 'Harry Potter and the Philosopher\'s Stone', value: 'harry_potter_1997', extra: 'hw' },
@@ -23,7 +14,17 @@ const options = ref<string[]>([]);
           { label: 'The Lord of the Rings', value: 'tlotr', extra: 'hw4' },
           { label: 'The Hobbit', value: 'hobbit', extra: 'hw5' },
           { label: 'The Silmarillion', value: 'silmarillion', extra: 'hw6' },
-        ]"
+        ]);
+</script>
+
+<template>
+  <div class="container">
+    <form class="form-container" @submit.prevent="null">
+      <VueSelect
+        v-model="option"
+        :is-multi="false"
+        :options="options"
+        :is-extendable="true"
         placeholder="Pick a book"
       />
 
