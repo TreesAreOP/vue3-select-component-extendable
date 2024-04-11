@@ -26,7 +26,11 @@ const options = ref([
         :options="options"
         :is-extendable="true"
         placeholder="Pick a book"
-      />
+      >
+        <template #new-option="{ option }">
+          Press Enter to add '{{ option }}'
+        </template>
+      </VueSelect>
 
       <p class="selected-value">
         Selected value: {{ option || "none" }}

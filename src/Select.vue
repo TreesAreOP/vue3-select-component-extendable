@@ -236,7 +236,6 @@ const handleNavigation = (e: KeyboardEvent) => {
         setOption(selectionOption.value);
       } else {
         if (props.isExtendable && search.value.length > 0) {
-          debugger
           options.push({ label: search.value, value: search.value })
           setOption(search.value);
         }
@@ -400,7 +399,7 @@ onBeforeUnmount(() => {
           <slot v-if="!props.isExtendable" name="no-options">
             No results found
           </slot>
-          <slot v-if="props.isExtendable" name="new-options">
+          <slot v-if="props.isExtendable" name="new-option" :option="search">
             Press Enter to add '{{ search }}'
           </slot>
         </div>
